@@ -8,12 +8,10 @@ import java.util.HashSet;
  * 生产者
  */
 public class Producer {
-	
-	//private final HashMap<String , String > uesed_Key = new HashMap<>();    // 存储已经出现过的固定头部 , set中存储 
 	private String topic = null ;
 	
 	public static byte count = 0;
-	public  Producer(){
+	public  Producer(){    // 此处是为了 flush 的处理 
 		this.count ++;
 	}
 	
