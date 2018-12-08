@@ -15,8 +15,10 @@ import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.HashMap;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.zip.Deflater;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
+import java.util.zip.Inflater;
 
 public class MessageStore {
 	static final MessageStore store = new MessageStore();
@@ -248,7 +250,11 @@ public class MessageStore {
 			byte[] data = new byte[length];                 // 用 byte数组 存储 data 
 			temp_In.read(data);             
 			if (is_Compress == 1) {                     // 如果压缩了
-				msg.setBody(uncompress(data));      // 解压，并且 setBody
+				try {
+					msg.setBody(uncompress(data));
+				} catch (Exception e) {
+					e.printStackTrace();
+				}      // 解压，并且 setBody
 			} else {                         
 				msg.setBody(data);                        // 直接 setBody
 			}
@@ -257,7 +263,7 @@ public class MessageStore {
 			return null;
 		}
 	}
-
+/*
 	public static byte[] compress(byte[] data) {
 		byte[] new_Data = null;
 		try {
@@ -295,7 +301,10 @@ public class MessageStore {
 		}
 		return new_Data;
 	}
-/*
+*/
+	
+	
+
 	public static byte[] compress(byte[] input) {
         ByteArrayOutputStream bos = new ByteArrayOutputStream();
         Deflater compressor = new Deflater(1);
@@ -329,5 +338,5 @@ public class MessageStore {
         }
         return bos.toByteArray();
     }
-*/
+
 }
