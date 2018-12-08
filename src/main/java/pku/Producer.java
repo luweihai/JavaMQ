@@ -8,10 +8,11 @@ import java.util.HashSet;
  * 生产者
  */
 public class Producer {
+	
 	private String topic = null ;
 	
 	public static byte count = 0;
-	public  Producer(){    // 此处是为了 flush 的处理 
+	public  Producer(){
 		this.count ++;
 	}
 	
@@ -27,6 +28,7 @@ public class Producer {
     public void send(ByteMessage defaultMessage) throws IOException{  // 一个生产者用到多个 defaultMessage，因为多次 send，所以这个
     	if(defaultMessage == null)
         	return ;
+      
         MessageStore.store.push(defaultMessage , topic);     // 所谓发送消息就是写在 Store（磁盘） 
     }
     //处理将缓存区的剩余部分

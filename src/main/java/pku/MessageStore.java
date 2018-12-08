@@ -12,11 +12,11 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.text.SimpleDateFormat;
 import java.util.HashMap;
-//import java.util.zip.Deflater;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
-//import java.util.zip.Inflater;
 
 public class MessageStore {
 	static final MessageStore store = new MessageStore();
@@ -159,7 +159,7 @@ public class MessageStore {
 		byte[] body = null;
 		byte head_Num = (byte) msg.headers().keySet().size();   // 此处就是得到已经出现过的消息的 固定的头 组成的Set 集合的 大小      对于什么而言的已经出现？？
 		byte isCompress;
-		if (msg.getBody().length > 1024) {     // 消息的 body的 byte数组 大于 1024   感觉1024是效果最好的
+		if (msg.getBody().length > 1024) {     // 消息的 body的 byte数组 大于 1024 
 			body = compress(msg.getBody());   // 对 body 压缩
 			isCompress = 1;       // 记录被压缩了 
 		}
@@ -197,13 +197,13 @@ public class MessageStore {
 		}
 	}
 
-	public ByteMessage pull(String queue, String topic) throws Exception {
+	public ByteMessage pull(String queue, String topic) throws IOException {
 		
-		String queue_Topic = queue + " " + topic;                     // 此处 k 是 queue + topic 
+		String queue_Topic = queue + " " + topic;                     
 		
-		DataInputStream temp_In;                               // 
+		DataInputStream temp_In;                             
 		
-		if (!map_In.containsKey(queue_Topic)) {                       // 如果 输入流 的 Map  没包含 k 
+		if (!map_In.containsKey(queue_Topic)) {                       // 如果 输入流 的 Map  
 			try {
 				temp_In = new DataInputStream(new BufferedInputStream(new FileInputStream("./data/" + topic)));    // 建立 输入流 
 			} catch (FileNotFoundException e) {
@@ -213,16 +213,16 @@ public class MessageStore {
 			synchronized (map_In) {             // 加锁，只能让一个线程调用  输入流的 put 
 				map_In.put(queue_Topic , temp_In);             //  输入流 temp_In 添加进 输入流的 map 
 			}
-		} else {                                
+		} else {                                  // 否则
 			temp_In = map_In.get(queue_Topic);                // 根据  queue + topic  作为 map 的 key 得到输入流 
 		}
 
 		if (temp_In.available() != 0) {                  // 此方法是返回流中实际可以读取的字节数目  
 			// 读入消息
-			ByteMessage msg = new DefaultMessage(null);    
+			ByteMessage msg = new DefaultMessage(null);        
 			//short head_Type;
 			byte head_Type ;
-			byte head_Num = temp_In.readByte();              // readByte() 返回的是 所读取的一个 byte   
+			byte head_Num = temp_In.readByte();              // readByte() 返回的是 所读取的一个 byte     见78 行 
 			for (int i = 0; i < head_Num; i++) {
 
 				                                          //  接下来就是读取依此出现过的 固定头部 
@@ -230,7 +230,7 @@ public class MessageStore {
 				switch (change_Headers_Key.indexToClass.get(head_Type)) {     //  short 类型的 分类 
 				case  1:
 					msg.putHeaders(change_Headers_Key.indexToString.get(head_Type), temp_In.readLong());  // 生成 message头部，key 是 short的分类，value 是 topic 
-					break;                                                                        
+					break;                                                                         // 为什么 key 是分类？ 
 				case  2:
 					msg.putHeaders(change_Headers_Key.indexToString.get(head_Type), temp_In.readDouble());
 					break;
@@ -242,12 +242,12 @@ public class MessageStore {
 					break;
 				}
 			}
-			msg.putHeaders("Topic", topic);                      
-			byte is_Compress = temp_In.readByte();           // 读一个byte 表示 是否被压缩了                     
+			msg.putHeaders("Topic", topic);         //                   
+			byte is_Compress = temp_In.readByte();           // 读一个byte 表示 是否被压缩了                
 			short length = temp_In.readShort();             //  读一个 short ，代表 data 的长度 
 			byte[] data = new byte[length];                 // 用 byte数组 存储 data 
 			temp_In.read(data);             
-			if (is_Compress == 1) {                    // 如果压缩了
+			if (is_Compress == 1) {                     // 如果压缩了
 				msg.setBody(uncompress(data));      // 解压，并且 setBody
 			} else {                         
 				msg.setBody(data);                        // 直接 setBody
@@ -256,6 +256,44 @@ public class MessageStore {
 		} else {                                   // 没有可读的消息了 
 			return null;
 		}
+	}
+
+	public static byte[] compress(byte[] data) {
+		byte[] new_Data = null;
+		try {
+			ByteArrayOutputStream bos = new ByteArrayOutputStream();
+			GZIPOutputStream gzip = new GZIPOutputStream(bos);
+			gzip.write(data);
+			gzip.finish();
+			gzip.close();
+			new_Data = bos.toByteArray();
+			bos.close();
+		} catch (Exception ex) {
+			ex.printStackTrace();
+		}
+		return new_Data;
+	}
+
+	public static byte[] uncompress(byte[] data) {
+		byte[] new_Data = null;
+		try {
+			ByteArrayInputStream bis = new ByteArrayInputStream(data);
+			GZIPInputStream gzip = new GZIPInputStream(bis);
+			byte[] buf = new byte[1024];
+			int num = -1;
+			ByteArrayOutputStream baos = new ByteArrayOutputStream();
+			while ((num = gzip.read(buf, 0, buf.length)) != -1) {
+				baos.write(buf, 0, num);
+			}
+			new_Data = baos.toByteArray();
+			baos.flush();
+			baos.close();
+			gzip.close();
+			bis.close();
+		} catch (Exception ex) {
+			ex.printStackTrace();
+		}
+		return new_Data;
 	}
 /*
 	public static byte[] compress(byte[] input) {
@@ -292,45 +330,4 @@ public class MessageStore {
         return bos.toByteArray();
     }
 */
-	
-	public static byte[] compress(byte[] data) {
-		byte[] b = null;
-		try {
-			ByteArrayOutputStream bos = new ByteArrayOutputStream();
-			GZIPOutputStream gzip = new GZIPOutputStream(bos);
-			gzip.write(data);
-			gzip.finish();
-			gzip.close();
-			b = bos.toByteArray();
-			bos.close();
-		} catch (Exception ex) {
-			ex.printStackTrace();
-		}
-		return b;
-	}
-
-	public static byte[] uncompress(byte[] data) {
-		byte[] b = null;
-		try {
-			ByteArrayInputStream bis = new ByteArrayInputStream(data);
-			GZIPInputStream gzip = new GZIPInputStream(bis);
-			byte[] buf = new byte[1024];
-			int num = -1;
-			ByteArrayOutputStream baos = new ByteArrayOutputStream();
-			while ((num = gzip.read(buf, 0, buf.length)) != -1) {
-				baos.write(buf, 0, num);
-			}
-			b = baos.toByteArray();
-			baos.flush();
-			baos.close();
-			gzip.close();
-			bis.close();
-		} catch (Exception ex) {
-			ex.printStackTrace();
-		}
-		return b;
-	}
-	
-
-	
 }
