@@ -12,9 +12,7 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.text.SimpleDateFormat;
 import java.util.HashMap;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.zip.Deflater;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
@@ -123,24 +121,24 @@ public class MessageStore {
 	
 	
 	
-	public synchronized void flush()  throws IOException{
+	public synchronized void flush()  throws IOException{    
 		Producer.count --;
 		int count = Producer.count ;
-		if( count != 0)
+		if( count != 0)            //  
 			return ;
 		
-		for(String head : map_Out.keySet() ){
-			map_Out.get(head).close();
+		for(String topic : map_Out.keySet() ){
+			map_Out.get( topic ).close();
 		}
 		
 	}
 
 	// push
-	public void push(ByteMessage msg, String topic) throws IOException {
+	public void push(ByteMessage msg, String topic) throws IOException {     // 如果把锁加在这里，效率会很低 
 		if (msg == null) {
 			return;
 		}
-		DataOutputStream temp_Out;     // 输出流 ， 暂时 
+		DataOutputStream temp_Out;      
 		synchronized (map_Out) {     // 锁 ， 一个线程调用此代码块时， map_Out 会加锁，另外的线程就不能调用此代码块
 			if (!map_Out.containsKey(topic)) {    // topic 无 对应的输出流 
 				temp_Out = new DataOutputStream(
@@ -209,11 +207,10 @@ public class MessageStore {
 			try {
 				temp_In = new DataInputStream(new BufferedInputStream(new FileInputStream("./data/" + topic)));    // 建立 输入流 
 			} catch (FileNotFoundException e) {
-				// e.printStackTrace();
 				return null;
 			}
-			synchronized (map_In) {             // 加锁，只能让一个线程调用  输入流的 put 
-				map_In.put(queue_Topic , temp_In);             //  输入流 temp_In 添加进 输入流的 map 
+			synchronized (map_In) {             // 加锁，只能让一个线程调用  输入流的 put    之前不加锁总出现 索引越界 
+				map_In.put(queue_Topic , temp_In);    
 			}
 		} else {                                  // 否则
 			temp_In = map_In.get(queue_Topic);                // 根据  queue + topic  作为 map 的 key 得到输入流 
@@ -254,7 +251,7 @@ public class MessageStore {
 					msg.setBody(uncompress(data));
 				} catch (Exception e) {
 					e.printStackTrace();
-				}      // 解压，并且 setBody
+				}      
 			} else {                         
 				msg.setBody(data);                        // 直接 setBody
 			}
