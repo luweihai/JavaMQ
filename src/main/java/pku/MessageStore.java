@@ -1,5 +1,9 @@
 package pku;
 
+import pku.ByteMessage;
+
+import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
@@ -8,25 +12,29 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.text.SimpleDateFormat;
 import java.util.HashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
 
-
-
 public class MessageStore {
+	static final MessageStore store = new MessageStore();
+
+	// 消息存储
+	HashMap<String, DataOutputStream> map_Out = new HashMap<>();          //  输出流
+	//volatile int producerNum = 0;
+	HashMap<String, DataInputStream> map_In = new HashMap<>();         //  输入流 
+
+
 	
-	protected static final MessageStore store = new MessageStore();
-	
-	HashMap<String , DataOutputStream >  map_Out = new HashMap<>();
-	HashMap<String  , DataInputStream  >  map_In = new HashMap<>();
 	
 	private static class change_Headers_Key{
 		/*
 		 * 下面的匿名内部类是初始化 索引-固定头部-分类的 映射关系
 		 */
 		
-		public static final HashMap<Byte, String> indexToString = new HashMap<Byte, String>() {    // key是索引，value是固定头部 ？ 
+		public static final  HashMap<Byte, String> indexToString = new HashMap<Byte, String>() {    // key是索引，value是固定头部 ？ 
 			{
 				put((byte) 1, "MessageId");
 				put((byte) 2, "Topic");
@@ -110,7 +118,10 @@ public class MessageStore {
 	}
 	
 	
-	public void flush() throws IOException{
+	
+	
+	
+	public synchronized void flush()  throws IOException{
 		Producer.count --;
 		int count = Producer.count ;
 		if( count != 0)
@@ -121,135 +132,132 @@ public class MessageStore {
 		}
 		
 	}
-	
-	public  void push( ByteMessage msg , String topic ) throws IOException{
-		if(msg == null )
-			return ;
-		DataOutputStream temp_Out = null;
-		synchronized (map_Out) {
-			if( map_Out.containsKey( topic ) == false ){
+
+	// push
+	public void push(ByteMessage msg, String topic) throws IOException {
+		if (msg == null) {
+			return;
+		}
+		DataOutputStream temp_Out;     // 输出流 ， 暂时 
+		synchronized (map_Out) {     // 锁 ， 一个线程调用此代码块时， map_Out 会加锁，另外的线程就不能调用此代码块
+			if (!map_Out.containsKey(topic)) {    // topic 无 对应的输出流 
 				temp_Out = new DataOutputStream(
 						new BufferedOutputStream(new FileOutputStream("./data/" + topic, true)));    // true表示添加而不是覆盖 ， 路径最后是 topic 实现多个输出流
-				map_Out.put(topic, temp_Out); 
-			}
-			else{
-				temp_Out = map_Out.get(topic);
+				map_Out.put(topic, temp_Out);          // 把新的输出流 加入 输出流的 map 中 
+				
+				
+	/*			FileOutputStream fs = new FileOutputStream("./data/" + topic, true);
+				temp_Out = new DataOutputStream( fs );                此处是优化的点，居然可以提高push的效率近4倍？  为什么会这样？
+				map_Out.put(topic, temp_Out);
+						*/
+			} else {
+				temp_Out = map_Out.get(topic);         // 取得输出流 
 			}
 		}
-
 		
+		// 写入消息
 		byte[] body = null;
-		byte head_Num = (byte)msg.headers().keySet().size();
-		byte is_Compress ;
-		
+		byte head_Num = (byte) msg.headers().keySet().size();   // 此处就是得到已经出现过的消息的 固定的头 组成的Set 集合的 大小      对于什么而言的已经出现？？
+		byte isCompress;
 		if (msg.getBody().length > 1024) {     // 消息的 body的 byte数组 大于 1024 
 			body = compress(msg.getBody());   // 对 body 压缩
-			is_Compress = 1;       // 记录被压缩了 
+			isCompress = 1;       // 记录被压缩了 
 		}
 		else {
-			body  =  msg.getBody();      // 不压缩了
-			is_Compress = 0;
+			body=msg.getBody();      // 不压缩了
+			isCompress = 0;
 		}
 
-		synchronized (temp_Out) {
-			temp_Out.writeByte(head_Num);
-			for( String headers_Key :  msg.headers().keySet() ){
+		synchronized (temp_Out) {        //  加锁，只能一个线程访问 temp_Out 对象 
+			temp_Out.writeByte(head_Num);                    //  写入  已经出现过的消息的 固定的头 组成的Set 集合的 大小 
+			for (String key : msg.headers().keySet()) {     //  遍历已经出现过的 固定头部  
 				
-				temp_Out.writeByte(change_Headers_Key.stringToClassByte.get(headers_Key)); 
+				temp_Out.writeByte(change_Headers_Key.stringToClassByte.get(key));         // 得到 某个 固定头部 对应的  byte类型的索引    并且写入 
 				
-			//	System.out.println( change_Headers_Key.stringToClassByte.get(headers_Key) + "&&&&" );    // 这里都是正确的 
+		
 				
-				switch (change_Headers_Key.stringToClass.get(headers_Key)) {             // 此处 得到 short 类型的 数字化 类型 
+				switch (change_Headers_Key.stringToClass.get(key)) {             // 此处 得到 short 类型的 数字化 类型 
 				case 1:
-					temp_Out.writeLong(msg.headers().getLong(headers_Key));               // 写入  long 类型的 topic 
+					temp_Out.writeLong(msg.headers().getLong(key));               // 写入  long 类型的 topic 
 					break;
 				case 2:
-					temp_Out.writeDouble(msg.headers().getDouble(headers_Key));               // 写入 double 类型的 topic
+					temp_Out.writeDouble(msg.headers().getDouble(key));               // 写入 double 类型的 topic
 					break;
 				case 3:
-					temp_Out.writeInt(msg.headers().getInt(headers_Key));                  // 写入 int 类型的 topic
+					temp_Out.writeInt(msg.headers().getInt(key));                  // 写入 int 类型的 topic
 					break;
 				case 4:
-					temp_Out.writeUTF(msg.headers().getString(headers_Key));            // 写入 String 类型的 topic     此处是用输出流的 writeUTF
+					temp_Out.writeUTF(msg.headers().getString(key));            // 写入 String 类型的 topic     此处是用输出流的 writeUTF
 					break;
 				}
 			}
-			temp_Out.writeByte(is_Compress);           //  is_Compress = 0 或者 1  表明 是否被压缩 
+			temp_Out.writeByte(isCompress);           //  isCompress = 0 或者 1  表明 是否被压缩 
 			temp_Out.writeShort(body.length);         // 写入 body，也就是 数据部分 的长度  用 short是为了节约 
-			temp_Out.write(body);
+			temp_Out.write(body);			          // 写入全部的 body 数据
 		}
-			
 	}
-	
-	
-	public  ByteMessage pull(String queue  , String topic) throws IOException{
+
+	public ByteMessage pull(String queue, String topic) throws IOException {
 		
-		String queue_Topic = queue + " " + topic;
-		DataInputStream temp_In = null;
-				
+		String queue_Topic = queue + " " + topic;                     // 此处 k 是 queue + topic 
 		
-		if (!map_In.containsKey(queue_Topic)) {
+		DataInputStream temp_In;                               // 
+		
+		if (!map_In.containsKey(queue_Topic)) {                       // 如果 输入流 的 Map  没包含 k 
 			try {
-				FileInputStream fs = new FileInputStream("./data/" + topic );
-				temp_In = new DataInputStream( fs );;
+				temp_In = new DataInputStream(new BufferedInputStream(new FileInputStream("./data/" + topic)));    // 建立 输入流 
 			} catch (FileNotFoundException e) {
 				// e.printStackTrace();
 				return null;
 			}
-			synchronized (map_In) {
-				map_In.put(queue_Topic, temp_In);
+			synchronized (map_In) {             // 加锁，只能让一个线程调用  输入流的 put 
+				map_In.put(queue_Topic , temp_In);             //  输入流 temp_In 添加进 输入流的 map 
 			}
-		} else {
-			temp_In= map_In.get(queue_Topic);
-		}  
-		
-		
-		
-		if( temp_In.available() == 0 )
+		} else {                                  // 否则
+			temp_In = map_In.get(queue_Topic);                // 根据  queue + topic  作为 map 的 key 得到输入流 
+		}
+
+		if (temp_In.available() != 0) {                  // 此方法是返回流中实际可以读取的字节数目  
+			// 读入消息
+			ByteMessage msg = new DefaultMessage(null);           // 无参构造 
+			//short head_Type;
+			byte head_Type ;
+			byte head_Num = temp_In.readByte();              // readByte() 返回的是 所读取的一个 byte     见78 行 
+			for (int i = 0; i < head_Num; i++) {
+
+				                                          //  接下来就是读取依此出现过的 固定头部 
+				head_Type = temp_In.readByte();                //  在循环中获取 固定头部的  byte类型的 下标 
+				switch (change_Headers_Key.indexToClass.get(head_Type)) {     //  short 类型的 分类 
+				case  1:
+					msg.putHeaders(change_Headers_Key.indexToString.get(head_Type), temp_In.readLong());  // 生成 message头部，key 是 short的分类，value 是 topic 
+					break;                                                                         // 为什么 key 是分类？ 
+				case  2:
+					msg.putHeaders(change_Headers_Key.indexToString.get(head_Type), temp_In.readDouble());
+					break;
+				case  3:
+					msg.putHeaders(change_Headers_Key.indexToString.get(head_Type), temp_In.readInt());
+					break;
+				case  4:
+					msg.putHeaders(change_Headers_Key.indexToString.get(head_Type), temp_In.readUTF());   // 此处是用输入流的 readUTF() 
+					break;
+				}
+			}
+			msg.putHeaders("Topic", topic);         // 为什么这里是设置一个头部用 Topic ？                    
+			byte is_Compress = temp_In.readByte();           // 读一个byte 表示 是否被压缩了                       这些见99行
+			short length = temp_In.readShort();             //  读一个 short ，代表 data 的长度 ？
+			byte[] data = new byte[length];                 // 用 byte数组 存储 data 
+			temp_In.read(data);             
+			if (is_Compress == 1) {                     // 如果压缩了
+				msg.setBody(uncompress(data));      // 解压，并且 setBody
+			} else {                         
+				msg.setBody(data);                        // 直接 setBody
+			}
+			return msg;           
+		} else {                                   // 没有可读的消息了 
 			return null;
-		ByteMessage msg = new DefaultMessage( null );
-		
-		byte head_Type ;
-		byte head_Num = temp_In.readByte();  // 读出的第一个是 head_Num  
-	//	System.out.println(head_Num + "$$");            // 这里就有问题了 
-		for(int i = 0  ; i < head_Num ; i ++){
-			
-			head_Type = temp_In.readByte();
-			
-	//		System.out.println(head_Type + "asdasd");     
-			
-			switch (change_Headers_Key.indexToClass.get(head_Type)) {     //  short 类型的 分类 
-			case  1:
-				msg.putHeaders(change_Headers_Key.indexToString.get(head_Type), temp_In.readLong());  // 生成 message头部，key 是 short的分类，value 是 topic 
-				break;                                                                         // 为什么 key 是分类？ 
-			case  2:
-				msg.putHeaders(change_Headers_Key.indexToString.get(head_Type), temp_In.readDouble());
-				break;
-			case  3:
-				msg.putHeaders(change_Headers_Key.indexToString.get(head_Type), temp_In.readInt());
-				break;
-			case  4:
-				msg.putHeaders(change_Headers_Key.indexToString.get(head_Type), temp_In.readUTF());   // 此处是用输入流的 readUTF() 
-				break;
-			}
 		}
-		
-		msg.putHeaders("Topic", topic);
-		byte is_Compress = temp_In.readByte();
-		short length = temp_In.readShort();
-		byte[] data = new byte[length];
-		temp_In.read(data);
-		
-		if (is_Compress == 1) {                     // 如果压缩了
-			msg.setBody(uncompress(data));      // 解压，并且 setBody
-		} else {                         
-			msg.setBody(data);                        // 直接 setBody
-		}
-		
-		return msg;
 	}
-	
-	
+
 	public static byte[] compress(byte[] data) {
 		byte[] b = null;
 		try {
@@ -265,7 +273,7 @@ public class MessageStore {
 		}
 		return b;
 	}
-	
+
 	public static byte[] uncompress(byte[] data) {
 		byte[] b = null;
 		try {
@@ -287,5 +295,5 @@ public class MessageStore {
 		}
 		return b;
 	}
-	
+
 }
