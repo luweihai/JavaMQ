@@ -159,7 +159,7 @@ public class MessageStore {
 		byte[] body = null;
 		byte head_Num = (byte) msg.headers().keySet().size();   // 此处就是得到已经出现过的消息的 固定的头 组成的Set 集合的 大小      对于什么而言的已经出现？？
 		byte isCompress;
-		if (msg.getBody().length > 1024) {     // 消息的 body的 byte数组 大于 1024 
+		if (msg.getBody().length > 256) {     // 消息的 body的 byte数组 大于 1024 
 			body = compress(msg.getBody());   // 对 body 压缩
 			isCompress = 1;       // 记录被压缩了 
 		}
@@ -259,33 +259,33 @@ public class MessageStore {
 	}
 
 	public static byte[] compress(byte[] data) {
-		byte[] b = null;
+		byte[] buffer = null;
 		try {
 			ByteArrayOutputStream bos = new ByteArrayOutputStream();
 			GZIPOutputStream gzip = new GZIPOutputStream(bos);
 			gzip.write(data);
 			gzip.finish();
 			gzip.close();
-			b = bos.toByteArray();
+			buffer = bos.toByteArray();
 			bos.close();
 		} catch (Exception ex) {
 			ex.printStackTrace();
 		}
-		return b;
+		return buffer;
 	}
 
 	public static byte[] uncompress(byte[] data) {
-		byte[] b = null;
+		byte[] buffer = null;
 		try {
 			ByteArrayInputStream bis = new ByteArrayInputStream(data);
 			GZIPInputStream gzip = new GZIPInputStream(bis);
-			byte[] buf = new byte[1024];
+			byte[] buf = new byte[256];
 			int num = -1;
 			ByteArrayOutputStream baos = new ByteArrayOutputStream();
 			while ((num = gzip.read(buf, 0, buf.length)) != -1) {
 				baos.write(buf, 0, num);
 			}
-			b = baos.toByteArray();
+			buffer = baos.toByteArray();
 			baos.flush();
 			baos.close();
 			gzip.close();
@@ -293,7 +293,7 @@ public class MessageStore {
 		} catch (Exception ex) {
 			ex.printStackTrace();
 		}
-		return b;
+		return buffer;
 	}
 
 }
