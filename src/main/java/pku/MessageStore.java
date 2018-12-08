@@ -15,8 +15,11 @@ import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.HashMap;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.zip.DataFormatException;
+import java.util.zip.Deflater;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
+import java.util.zip.Inflater;
 
 public class MessageStore {
 	static final MessageStore store = new MessageStore();
@@ -159,7 +162,7 @@ public class MessageStore {
 		byte[] body = null;
 		byte head_Num = (byte) msg.headers().keySet().size();   // 此处就是得到已经出现过的消息的 固定的头 组成的Set 集合的 大小      对于什么而言的已经出现？？
 		byte isCompress;
-		if (msg.getBody().length > 2048) {     // 消息的 body的 byte数组 大于 1024 
+		if (msg.getBody().length > 1024) {     // 消息的 body的 byte数组 大于 1024 
 			body = compress(msg.getBody());   // 对 body 压缩
 			isCompress = 1;       // 记录被压缩了 
 		}
@@ -258,42 +261,37 @@ public class MessageStore {
 		}
 	}
 
-	public static byte[] compress(byte[] data) {
-		byte[] new_Data = null;
-		try {
-			ByteArrayOutputStream bos = new ByteArrayOutputStream();
-			GZIPOutputStream gzip = new GZIPOutputStream(bos);
-			new_Data = bos.toByteArray();
-			gzip.write(data);
-			gzip.finish();
-			gzip.close();
-			bos.close();
-		} catch (Exception ex) {
-			ex.printStackTrace();
-		}
-		return new_Data;
-	}
+	public static byte[] compress(byte[] input) {
+        ByteArrayOutputStream bos = new ByteArrayOutputStream();
+        Deflater compressor = new Deflater(1);
+        try {
+            compressor.setInput(input);
+            compressor.finish();
+            final byte[] buf = new byte[1024];
+            while (!compressor.finished()) {
+                int count = compressor.deflate(buf);
+                bos.write(buf, 0, count);
+            }
+        } finally {
+            compressor.end();
+        }
+        return bos.toByteArray();
+    }
 
-	public static byte[] uncompress(byte[] data) {
-		byte[] new_Data = null;
-		try {
-			ByteArrayInputStream bis = new ByteArrayInputStream(data);
-			GZIPInputStream gzip = new GZIPInputStream(bis);
-			byte[] buf = new byte[2048];
-			int num = -1;
-			ByteArrayOutputStream baos = new ByteArrayOutputStream();
-			while ((num = gzip.read(buf, 0, buf.length)) != -1) {
-				baos.write(buf, 0, num);
-			}
-			new_Data = baos.toByteArray();
-			baos.flush();
-			baos.close();
-			gzip.close();
-			bis.close();
-		} catch (Exception ex) {
-			ex.printStackTrace();
-		}
-		return new_Data;
-	}
+	public static byte[] uncompress(byte[] input) throws DataFormatException {
+        ByteArrayOutputStream bos = new ByteArrayOutputStream();
+        Inflater decompressor = new Inflater();
+        try {
+            decompressor.setInput(input);
+            final byte[] buf = new byte[5120];
+            while (!decompressor.finished()) {
+                int count = decompressor.inflate(buf);
+                bos.write(buf, 0, count);
+            }
+        } finally {
+            decompressor.end();
+        }
+        return bos.toByteArray();
+    }
 
 }
