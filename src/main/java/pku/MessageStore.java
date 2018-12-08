@@ -233,7 +233,7 @@ public class MessageStore {
 				switch (change_Headers_Key.indexToClass.get(head_Type)) {     //  short 类型的 分类 
 				case  1:
 					msg.putHeaders(change_Headers_Key.indexToString.get(head_Type), temp_In.readLong());  // 生成 message头部，key 是 short的分类，value 是 topic 
-					break;                                                                         // 为什么 key 是分类？ 
+					break;                                                                        
 				case  2:
 					msg.putHeaders(change_Headers_Key.indexToString.get(head_Type), temp_In.readDouble());
 					break;
@@ -247,7 +247,7 @@ public class MessageStore {
 			}
 			msg.putHeaders("Topic", topic);                      
 			byte is_Compress = temp_In.readByte();           // 读一个byte 表示 是否被压缩了                     
-			short length = temp_In.readShort();             //  读一个 short ，代表 data 的长度 ？
+			short length = temp_In.readShort();             //  读一个 short ，代表 data 的长度 
 			byte[] data = new byte[length];                 // 用 byte数组 存储 data 
 			temp_In.read(data);             
 			if (is_Compress == 1) {                    // 如果压缩了
@@ -260,7 +260,7 @@ public class MessageStore {
 			return null;
 		}
 	}
-
+/*
 	public static byte[] compress(byte[] input) {
         ByteArrayOutputStream bos = new ByteArrayOutputStream();
         Deflater compressor = new Deflater(1);
@@ -294,8 +294,8 @@ public class MessageStore {
         }
         return bos.toByteArray();
     }
+*/
 	
-/*	
 	public static byte[] compress(byte[] data) {
 		byte[] b = null;
 		try {
@@ -334,6 +334,6 @@ public class MessageStore {
 		return b;
 	}
 	
-*/
+
 	
 }
