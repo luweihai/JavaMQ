@@ -1,33 +1,13 @@
 package pku;
 
-<<<<<<< HEAD
-=======
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.HashSet;
 
->>>>>>> JavaMQ
 /**
  * 生产者
  */
 public class Producer {
-<<<<<<< HEAD
-
-	//生成一个指定topic的message返回
-    public ByteMessage createBytesMessageToTopic(String topic, byte[] body){
-        ByteMessage msg=new DefaultMessage(body);
-        msg.putHeaders(MessageHeader.TOPIC,topic);
-        return msg;
-    }
-    //将message发送出去
-    public void send(ByteMessage defaultMessage){
-        String topic = defaultMessage.headers().getString(MessageHeader.TOPIC);
-        DemoMessageStore.store.push(defaultMessage,topic);
-    }
-    //处理将缓存区的剩余部分
-    public void flush()throws Exception{
-        System.out.println(1);
-=======
 	
 	//private final HashMap<String , String > uesed_Key = new HashMap<>();    // 存储已经出现过的固定头部 , set中存储 
 	private String topic = null ;
@@ -55,6 +35,5 @@ public class Producer {
     //处理将缓存区的剩余部分
     public void flush()throws Exception{
         MessageStore.store.flush();
->>>>>>> JavaMQ
     }
 }

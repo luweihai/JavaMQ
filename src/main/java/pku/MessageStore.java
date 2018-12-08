@@ -22,10 +22,10 @@ public class MessageStore {
 	HashMap<String  , DataInputStream  >  map_In = new HashMap<>();
 	
 	private static class change_Headers_Key{
-		
 		/*
-		 * 下面的几个匿名内部类是初始化 头部信息String-index-Classification  的映射 
+		 * 下面的匿名内部类是初始化 索引-固定头部-分类的 映射关系
 		 */
+		
 		public static final HashMap<Byte, String> indexToString = new HashMap<Byte, String>() {    // key是索引，value是固定头部 ？ 
 			{
 				put((byte) 1, "MessageId");
@@ -66,7 +66,7 @@ public class MessageStore {
 				put("TraceId", (short) 4);                  // String  
 			}
 		};
-		public static final HashMap<String, Byte> stringToIndex = new HashMap<String, Byte>() {     // value 表明索引
+		public static final HashMap<String, Byte> stringToClassByte = new HashMap<String, Byte>() {     // value 表明索引
 			{
 				put("MessageId", (byte) 1);                      
 				put("Topic", (byte) 2);                           
@@ -86,6 +86,7 @@ public class MessageStore {
 				put("TraceId", (byte) 16);
 			}
 		};
+		
 		public static final HashMap<Byte, Byte> indexToClass = new HashMap<Byte, Byte>() {   //  索引  到  类型 的  key-value 对
 			{
 				put((byte) 1, (byte) 3);                            // int
@@ -153,7 +154,9 @@ public class MessageStore {
 		temp_Out.writeByte(head_Num);
 		for( String headers_Key :  msg.headers().keySet() ){
 			
-			temp_Out.writeByte(change_Headers_Key.stringToIndex.get(headers_Key)); 
+			temp_Out.writeByte(change_Headers_Key.stringToClassByte.get(headers_Key)); 
+			
+		//	System.out.println( change_Headers_Key.stringToClassByte.get(headers_Key) + "&&&&" );    // 这里都是正确的 
 			
 			switch (change_Headers_Key.stringToClass.get(headers_Key)) {             // 此处 得到 short 类型的 数字化 类型 
 			case 1:
@@ -205,10 +208,12 @@ public class MessageStore {
 		
 		byte head_Type ;
 		byte head_Num = temp_In.readByte();  // 读出的第一个是 head_Num  
-
+	//	System.out.println(head_Num + "$$");            // 这里就有问题了 
 		for(int i = 0  ; i < head_Num ; i ++){
 			
-			head_Type = temp_In.readByte();    
+			head_Type = temp_In.readByte();
+			
+	//		System.out.println(head_Type + "asdasd");     
 			
 			switch (change_Headers_Key.indexToClass.get(head_Type)) {     //  short 类型的 分类 
 			case  1:
@@ -221,14 +226,10 @@ public class MessageStore {
 				msg.putHeaders(change_Headers_Key.indexToString.get(head_Type), temp_In.readInt());
 				break;
 			case  4:
-				msg.putHeaders(change_Headers_Key.indexToString.get(head_Type), temp_In.readUTF());   // 此处是用数据输入流的 readUTF() 
+				msg.putHeaders(change_Headers_Key.indexToString.get(head_Type), temp_In.readUTF());   // 此处是用输入流的 readUTF() 
 				break;
 			}
 		}
-
-		
-		
-		
 		
 		msg.putHeaders("Topic", topic);
 		byte is_Compress = temp_In.readByte();
@@ -243,9 +244,9 @@ public class MessageStore {
 		}
 		
 		return msg;
-		
-
 	}
+	
+	
 	public static byte[] compress(byte[] data) {
 		byte[] b = null;
 		try {

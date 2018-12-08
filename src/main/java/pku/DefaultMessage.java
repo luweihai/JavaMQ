@@ -1,8 +1,5 @@
 package pku;
 
-/**
- *消息的实现
- */
 public class DefaultMessage implements ByteMessage{
 
     private KeyValue headers = new DefaultKeyValue();
@@ -11,6 +8,8 @@ public class DefaultMessage implements ByteMessage{
     public void setHeaders(KeyValue headers) {
         this.headers = headers;
     }
+    
+    
 
     public DefaultMessage(byte[] body) {
         this.body = body;
@@ -27,46 +26,29 @@ public class DefaultMessage implements ByteMessage{
     public KeyValue headers() {
         return headers;
     }
-<<<<<<< HEAD
-
 
     public DefaultMessage putHeaders(String key, int value) {
-=======
-    
-
-    public DefaultMessage putHeaders(String key, int value) {   // value 是 topic ， key是那些静态常量
->>>>>>> JavaMQ
         headers.put(key, value);
+        //System.out.println(key+":3");
         return this;
     }
 
-<<<<<<< HEAD
     public DefaultMessage putHeaders(String key, long value) {
-=======
-    public DefaultMessage putHeaders(String key, long value) {   //  int long double是为了让我们简化？ 
->>>>>>> JavaMQ
         headers.put(key, value);
+        //System.out.println(key+":1");
         return this;
     }
 
     public DefaultMessage putHeaders(String key, double value) {
         headers.put(key, value);
+        //System.out.println(key+":2");
         return this;
     }
 
-<<<<<<< HEAD
     public DefaultMessage putHeaders(String key, String value) {
-=======
-    public DefaultMessage putHeaders(String key, String value) {   // 基本上只用 String 类型的
->>>>>>> JavaMQ
         headers.put(key, value);
+        //System.out.println(key+":4");
         return this;
     }
 
-<<<<<<< HEAD
-=======
-    
-    
-    
->>>>>>> JavaMQ
 }

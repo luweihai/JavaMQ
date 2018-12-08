@@ -7,11 +7,7 @@ import java.util.Set;
  * Key-Value接口
  * 代表key-value的映射, key为String类型, value的类型只有四种:int long double String
  */
-<<<<<<< HEAD
-public interface KeyValue {
-=======
 public interface KeyValue {    // 此处的 value 是 topic，然后key是 MessageHeader中的各种静态常量
->>>>>>> JavaMQ
 
     public Object getObj(String key);
 
