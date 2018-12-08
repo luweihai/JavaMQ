@@ -15,9 +15,11 @@ import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.HashMap;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.zip.DataFormatException;
 import java.util.zip.Deflater;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
+import java.util.zip.Inflater;
 
 public class MessageStore {
 	static final MessageStore store = new MessageStore();
@@ -198,7 +200,7 @@ public class MessageStore {
 		}
 	}
 
-	public ByteMessage pull(String queue, String topic) throws IOException {
+	public ByteMessage pull(String queue, String topic) throws Exception {
 		
 		String queue_Topic = queue + " " + topic;                     // 此处 k 是 queue + topic 
 		
@@ -249,7 +251,7 @@ public class MessageStore {
 			byte[] data = new byte[length];                 // 用 byte数组 存储 data 
 			temp_In.read(data);             
 			if (is_Compress == 1) {                     // 如果压缩了
-				msg.setBody(uncompress(data));      // 解压，并且 setBody
+				msg.setBody(uncompress1(data));      // 解压，并且 setBody
 			} else {                         
 				msg.setBody(data);                        // 直接 setBody
 			}
@@ -281,7 +283,7 @@ public class MessageStore {
 		try {
 			ByteArrayInputStream bis = new ByteArrayInputStream(data);
 			GZIPInputStream gzip = new GZIPInputStream(bis);
-			byte[] buf = new byte[2048];
+			byte[] buf = new byte[1024];
 			int num = -1;
 			ByteArrayOutputStream baos = new ByteArrayOutputStream();
 			while ((num = gzip.read(buf, 0, buf.length)) != -1) {
@@ -297,5 +299,22 @@ public class MessageStore {
 		}
 		return new_Data;
 	}
+	
+	public static byte[] uncompress1(byte[] input) throws Exception {
+        ByteArrayOutputStream bos = new ByteArrayOutputStream();
+        Inflater decompressor = new Inflater();
+        try {
+            decompressor.setInput(input);
+            final byte[] buf = new byte[256];
+            while (!decompressor.finished()) {
+                int count = decompressor.inflate(buf);
+                bos.write(buf, 0, count);
+            }
+        } finally {
+            decompressor.end();
+        }
+        return bos.toByteArray();
+    }
+	
 
 }
