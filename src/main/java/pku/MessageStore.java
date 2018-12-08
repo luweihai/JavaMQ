@@ -159,7 +159,7 @@ public class MessageStore {
 		
 		// 写入消息
 		byte[] body = null;
-		byte head_Num = (byte) msg.headers().keySet().size();   // 此处就是得到已经出现过的消息的 固定的头 组成的Set 集合的 大小      对于什么而言的已经出现？？
+		byte head_Num = (byte) msg.headers().keySet().size();   // 此处就是得到已经出现过的消息的 固定的头 组成的Set 集合的 大小     
 		byte isCompress;
 		if (msg.getBody().length > 1024) {     // 消息的 body的 byte数组 大于 1024 
 			body = compress(msg.getBody());   // 对 body 压缩
@@ -224,7 +224,7 @@ public class MessageStore {
 			ByteMessage msg = new DefaultMessage(null);        
 			//short head_Type;
 			byte head_Type ;
-			byte head_Num = temp_In.readByte();              // readByte() 返回的是 所读取的一个 byte     见78 行 
+			byte head_Num = temp_In.readByte();              // readByte() 返回的是 所读取的一个 byte    
 			for (int i = 0; i < head_Num; i++) {
 
 				                                          //  接下来就是读取依此出现过的 固定头部 
