@@ -15,11 +15,9 @@ import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.HashMap;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.zip.DataFormatException;
 import java.util.zip.Deflater;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
-import java.util.zip.Inflater;
 
 public class MessageStore {
 	static final MessageStore store = new MessageStore();
@@ -278,20 +276,26 @@ public class MessageStore {
         return bos.toByteArray();
     }
 
-	public static byte[] uncompress(byte[] input) throws DataFormatException {
-        ByteArrayOutputStream bos = new ByteArrayOutputStream();
-        Inflater decompressor = new Inflater();
-        try {
-            decompressor.setInput(input);
-            final byte[] buf = new byte[5120];
-            while (!decompressor.finished()) {
-                int count = decompressor.inflate(buf);
-                bos.write(buf, 0, count);
-            }
-        } finally {
-            decompressor.end();
-        }
-        return bos.toByteArray();
-    }
+	public static byte[] uncompress(byte[] data) {
+		byte[] new_Data = null;
+		try {
+			ByteArrayInputStream bis = new ByteArrayInputStream(data);
+			GZIPInputStream gzip = new GZIPInputStream(bis);
+			byte[] buf = new byte[2048];
+			int num = -1;
+			ByteArrayOutputStream baos = new ByteArrayOutputStream();
+			while ((num = gzip.read(buf, 0, buf.length)) != -1) {
+				baos.write(buf, 0, num);
+			}
+			new_Data = baos.toByteArray();
+			baos.flush();
+			baos.close();
+			gzip.close();
+			bis.close();
+		} catch (Exception ex) {
+			ex.printStackTrace();
+		}
+		return new_Data;
+	}
 
 }
