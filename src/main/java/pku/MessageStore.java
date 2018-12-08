@@ -179,7 +179,7 @@ public class MessageStore {
 	}
 	
 	
-	public synchronized  ByteMessage pull(String queue  , String topic) throws IOException{
+	public   ByteMessage pull(String queue  , String topic) throws IOException{
 		
 		String queue_Topic = queue + " " + topic;
 		DataInputStream temp_In = null;
