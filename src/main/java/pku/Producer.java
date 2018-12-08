@@ -13,7 +13,7 @@ public class Producer {
 	private String topic = null ;
 	
 	public static byte count = 0;
-	public Producer(){
+	public  Producer(){
 		this.count ++;
 	}
 	

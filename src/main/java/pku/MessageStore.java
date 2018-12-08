@@ -122,20 +122,21 @@ public class MessageStore {
 		
 	}
 	
-	public synchronized void push( ByteMessage msg , String topic ) throws IOException{
+	public  void push( ByteMessage msg , String topic ) throws IOException{
 		if(msg == null )
 			return ;
 		DataOutputStream temp_Out = null;
-		if( map_Out.containsKey( topic ) == false ){
-			FileOutputStream fs = new FileOutputStream("./data/" + topic, true);
-			temp_Out = new DataOutputStream( fs );
-			map_Out.put(topic, temp_Out);
+		synchronized (map_Out) {
+			if( map_Out.containsKey( topic ) == false ){
+				temp_Out = new DataOutputStream(
+						new BufferedOutputStream(new FileOutputStream("./data/" + topic, true)));    // true表示添加而不是覆盖 ， 路径最后是 topic 实现多个输出流
+				map_Out.put(topic, temp_Out); 
+			}
+			else{
+				temp_Out = map_Out.get(topic);
+			}
 		}
-		else{
-			temp_Out = map_Out.get(topic);
-		}
-		
-		
+
 		
 		byte[] body = null;
 		byte head_Num = (byte)msg.headers().keySet().size();
@@ -150,36 +151,38 @@ public class MessageStore {
 			is_Compress = 0;
 		}
 
-		
-		temp_Out.writeByte(head_Num);
-		for( String headers_Key :  msg.headers().keySet() ){
-			
-			temp_Out.writeByte(change_Headers_Key.stringToClassByte.get(headers_Key)); 
-			
-		//	System.out.println( change_Headers_Key.stringToClassByte.get(headers_Key) + "&&&&" );    // 这里都是正确的 
-			
-			switch (change_Headers_Key.stringToClass.get(headers_Key)) {             // 此处 得到 short 类型的 数字化 类型 
-			case 1:
-				temp_Out.writeLong(msg.headers().getLong(headers_Key));               // 写入  long 类型的 topic 
-				break;
-			case 2:
-				temp_Out.writeDouble(msg.headers().getDouble(headers_Key));               // 写入 double 类型的 topic
-				break;
-			case 3:
-				temp_Out.writeInt(msg.headers().getInt(headers_Key));                  // 写入 int 类型的 topic
-				break;
-			case 4:
-				temp_Out.writeUTF(msg.headers().getString(headers_Key));            // 写入 String 类型的 topic     此处是用输出流的 writeUTF
-				break;
+		synchronized (temp_Out) {
+			temp_Out.writeByte(head_Num);
+			for( String headers_Key :  msg.headers().keySet() ){
+				
+				temp_Out.writeByte(change_Headers_Key.stringToClassByte.get(headers_Key)); 
+				
+			//	System.out.println( change_Headers_Key.stringToClassByte.get(headers_Key) + "&&&&" );    // 这里都是正确的 
+				
+				switch (change_Headers_Key.stringToClass.get(headers_Key)) {             // 此处 得到 short 类型的 数字化 类型 
+				case 1:
+					temp_Out.writeLong(msg.headers().getLong(headers_Key));               // 写入  long 类型的 topic 
+					break;
+				case 2:
+					temp_Out.writeDouble(msg.headers().getDouble(headers_Key));               // 写入 double 类型的 topic
+					break;
+				case 3:
+					temp_Out.writeInt(msg.headers().getInt(headers_Key));                  // 写入 int 类型的 topic
+					break;
+				case 4:
+					temp_Out.writeUTF(msg.headers().getString(headers_Key));            // 写入 String 类型的 topic     此处是用输出流的 writeUTF
+					break;
+				}
 			}
+			temp_Out.writeByte(is_Compress);           //  is_Compress = 0 或者 1  表明 是否被压缩 
+			temp_Out.writeShort(body.length);         // 写入 body，也就是 数据部分 的长度  用 short是为了节约 
+			temp_Out.write(body);
 		}
-		temp_Out.writeByte(is_Compress);           //  is_Compress = 0 或者 1  表明 是否被压缩 
-		temp_Out.writeShort(body.length);         // 写入 body，也就是 数据部分 的长度  用 short是为了节约 
-		temp_Out.write(body);	
+			
 	}
 	
 	
-	public   ByteMessage pull(String queue  , String topic) throws IOException{
+	public  ByteMessage pull(String queue  , String topic) throws IOException{
 		
 		String queue_Topic = queue + " " + topic;
 		DataInputStream temp_In = null;
