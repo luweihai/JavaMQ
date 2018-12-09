@@ -211,8 +211,10 @@ public class MessageStore {
 			} catch (FileNotFoundException e) {
 				return null;
 			}
-			map_In.put(queue_Topic , temp_In); 
-		} else {                               
+			synchronized (map_In) {             // 加锁，只能让一个线程调用  输入流的 put    如果不加锁就会出错误 
+				map_In.put(queue_Topic , temp_In);             //  输入流 temp_In 添加进 输入流的 map 
+			}
+		} else {                                
 			temp_In = map_In.get(queue_Topic);                // 根据  queue + topic  作为 map 的 key 得到输入流 
 		}
 
