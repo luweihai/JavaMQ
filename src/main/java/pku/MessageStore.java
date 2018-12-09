@@ -14,6 +14,10 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.HashMap;
+import java.util.Iterator;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.zip.Deflater;
 import java.util.zip.GZIPInputStream;
@@ -155,7 +159,7 @@ public class MessageStore {
 			} else {
 				temp_Out = map_Out.get(topic);         // 取得输出流 
 			}
-		}
+		}      
 		
 		// 写入消息
 		byte[] body = null;
@@ -172,7 +176,38 @@ public class MessageStore {
 
 		synchronized (temp_Out) {        //  加锁，只能一个线程访问 temp_Out 对象 
 			temp_Out.writeByte(head_Num);                    //  写入  已经出现过的消息的 固定的头 组成的Set 集合的 大小 
-			for (String key : msg.headers().keySet()) {     //  遍历已经出现过的 固定头部  
+			
+			
+			
+			
+			
+			for( Map.Entry<String , Object > entry :  msg.headers().getMap().entrySet()  ){
+				String key = entry.getKey();
+				temp_Out.writeByte(change_Headers_Key.stringToClassByte.get( key ));         // 得到 某个 固定头部 对应的  byte类型的索引    并且写入 
+				
+		
+				
+				switch (change_Headers_Key.stringToClass.get( key )) {             // 此处 得到 short 类型的 数字化 类型 
+				case 1:
+					temp_Out.writeLong( (long)entry.getValue() );               // 写入  long 类型的 topic 
+					break;
+				case 2:
+					temp_Out.writeDouble((double)entry.getValue());               // 写入 double 类型的 topic
+					break;
+				case 3:
+					temp_Out.writeInt((int)entry.getValue());                  // 写入 int 类型的 topic
+					break;
+				case 4:
+					temp_Out.writeUTF( (String) entry.getValue());            // 写入 String 类型的 topic     此处是用输出流的 writeUTF
+					break;
+				}
+			}
+			
+			
+			
+			
+			
+/*			for (String key : msg.headers().keySet()) {     //  遍历已经出现过的 固定头部  
 				
 				temp_Out.writeByte(change_Headers_Key.stringToClassByte.get(key));         // 得到 某个 固定头部 对应的  byte类型的索引    并且写入 
 				
@@ -192,7 +227,7 @@ public class MessageStore {
 					temp_Out.writeUTF(msg.headers().getString(key));            // 写入 String 类型的 topic     此处是用输出流的 writeUTF
 					break;
 				}
-			}
+			}    */
 			temp_Out.writeByte(isCompress);           //  isCompress = 0 或者 1  表明 是否被压缩 
 			temp_Out.writeShort(body.length);         // 写入 body，也就是 数据部分 的长度  用 short是为了节约 
 			temp_Out.write(body);			          // 写入全部的 body 数据
