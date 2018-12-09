@@ -20,6 +20,7 @@ import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
 import java.util.zip.Inflater;
 
+
 public class MessageStore {
 	static final MessageStore store = new MessageStore();
 
@@ -123,10 +124,10 @@ public class MessageStore {
 	
 	
 	
-	public synchronized void flush()  throws IOException{
+	public synchronized void flush()  throws IOException{    
 		Producer.count --;
 		int count = Producer.count ;
-		if( count != 0)
+		if( count != 0)     
 			return ;
 		
 		for(String head : map_Out.keySet() ){
@@ -140,11 +141,11 @@ public class MessageStore {
 		if (msg == null) {
 			return;
 		}
-		DataOutputStream temp_Out;     // 输出流 ， 暂时 
+		DataOutputStream temp_Out;     // 输出流 
 		synchronized (map_Out) {     // 锁 ， 一个线程调用此代码块时， map_Out 会加锁，另外的线程就不能调用此代码块
 			if (!map_Out.containsKey(topic)) {    // topic 无 对应的输出流 
 				temp_Out = new DataOutputStream(
-						new BufferedOutputStream(new FileOutputStream("./data/" + topic, true)));    // true表示添加而不是覆盖 ， 路径最后是 topic 实现多个输出流
+						new BufferedOutputStream(new FileOutputStream("./data/" + topic)));   
 				map_Out.put(topic, temp_Out);          // 把新的输出流 加入 输出流的 map 中 
 				
 				
@@ -317,7 +318,7 @@ public class MessageStore {
 		return new_Data;
 	}
 
-	public static byte[] uncompress(byte[] data) {
+	public static byte[] uncompress(byte[] data) {          // https://blog.csdn.net/xue1225go/article/details/4263850  这个是压缩算法的博客
 		byte[] new_Data = null;
 		try {
 			ByteArrayInputStream bis = new ByteArrayInputStream(data);
