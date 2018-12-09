@@ -12,7 +12,9 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.text.SimpleDateFormat;
 import java.util.HashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.zip.Deflater;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
@@ -34,7 +36,7 @@ public class MessageStore {
 		 * 下面的匿名内部类是初始化 索引-固定头部-分类的 映射关系
 		 */
 		
-		public static final  HashMap<Byte, String> indexToString = new HashMap<Byte, String>() {    // key是索引，value是固定头部 ？ 
+		public static final  HashMap<Byte, String> indexToString = new HashMap<Byte, String>() {    
 			{
 				put((byte) 1, "MessageId");
 				put((byte) 2, "Topic");
@@ -121,24 +123,24 @@ public class MessageStore {
 	
 	
 	
-	public synchronized void flush()  throws IOException{    
+	public synchronized void flush()  throws IOException{
 		Producer.count --;
 		int count = Producer.count ;
-		if( count != 0)            //  
+		if( count != 0)
 			return ;
 		
-		for(String topic : map_Out.keySet() ){
-			map_Out.get( topic ).close();
+		for(String head : map_Out.keySet() ){
+			map_Out.get(head).close();
 		}
 		
 	}
 
 	// push
-	public void push(ByteMessage msg, String topic) throws IOException {     // 如果把锁加在这里，效率会很低 
+	public void push(ByteMessage msg, String topic) throws IOException {
 		if (msg == null) {
 			return;
 		}
-		DataOutputStream temp_Out;      
+		DataOutputStream temp_Out;     // 输出流 ， 暂时 
 		synchronized (map_Out) {     // 锁 ， 一个线程调用此代码块时， map_Out 会加锁，另外的线程就不能调用此代码块
 			if (!map_Out.containsKey(topic)) {    // topic 无 对应的输出流 
 				temp_Out = new DataOutputStream(
@@ -159,7 +161,7 @@ public class MessageStore {
 		byte[] body = null;
 		byte head_Num = (byte) msg.headers().keySet().size();   // 此处就是得到已经出现过的消息的 固定的头 组成的Set 集合的 大小     
 		byte isCompress;
-		if (msg.getBody().length > 200) {     // 消息的 body的 byte数组 大于 1024 
+		if (msg.getBody().length > 200) {     // 消息的 body的 byte数组 大于 200    调参数的过程  
 			body = compress(msg.getBody());   // 对 body 压缩
 			isCompress = 1;       // 记录被压缩了 
 		}
@@ -207,10 +209,11 @@ public class MessageStore {
 			try {
 				temp_In = new DataInputStream(new BufferedInputStream(new FileInputStream("./data/" + topic)));    // 建立 输入流 
 			} catch (FileNotFoundException e) {
+				// e.printStackTrace();
 				return null;
 			}
-			synchronized (map_In) {             // 加锁，只能让一个线程调用  输入流的 put    之前不加锁总出现 索引越界 
-				map_In.put(queue_Topic , temp_In);    
+			synchronized (map_In) {             // 加锁，只能让一个线程调用  输入流的 put 
+				map_In.put(queue_Topic , temp_In);             //  输入流 temp_In 添加进 输入流的 map 
 			}
 		} else {                                  // 否则
 			temp_In = map_In.get(queue_Topic);                // 根据  queue + topic  作为 map 的 key 得到输入流 
@@ -226,10 +229,10 @@ public class MessageStore {
 
 				                                          //  接下来就是读取依此出现过的 固定头部 
 				head_Type = temp_In.readByte();                //  在循环中获取 固定头部的  byte类型的 下标 
-				switch (change_Headers_Key.indexToClass.get(head_Type)) {     //  short 类型的 分类 
+				switch (change_Headers_Key.indexToClass.get(head_Type)) {    
 				case  1:
-					msg.putHeaders(change_Headers_Key.indexToString.get(head_Type), temp_In.readLong());  // 生成 message头部，key 是 short的分类，value 是 topic 
-					break;                                                                         // 为什么 key 是分类？ 
+					msg.putHeaders(change_Headers_Key.indexToString.get(head_Type), temp_In.readLong());   
+					break;                                                                          
 				case  2:
 					msg.putHeaders(change_Headers_Key.indexToString.get(head_Type), temp_In.readDouble());
 					break;
@@ -251,7 +254,7 @@ public class MessageStore {
 					msg.setBody(uncompress(data));
 				} catch (Exception e) {
 					e.printStackTrace();
-				}      
+				}      // 解压，并且 setBody
 			} else {                         
 				msg.setBody(data);                        // 直接 setBody
 			}
