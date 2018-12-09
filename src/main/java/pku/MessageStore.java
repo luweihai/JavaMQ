@@ -179,7 +179,7 @@ public class MessageStore {
 			
 			
 			
-			
+			// 用 switch 别用 if   switch底层有连续的查找表，空间换时间
 			
 			for( Map.Entry<String , Object > entry :  msg.headers().getMap().entrySet()  ){
 				String key = entry.getKey();
@@ -278,7 +278,7 @@ public class MessageStore {
 					break;
 				}
 			}
-			msg.putHeaders("Topic", topic);         //                   
+                  
 			byte is_Compress = temp_In.readByte();           // 读一个byte 表示 是否被压缩了                
 			short length = temp_In.readShort();             //  读一个 short ，代表 data 的长度 
 			byte[] data = new byte[length];                 // 用 byte数组 存储 data 
