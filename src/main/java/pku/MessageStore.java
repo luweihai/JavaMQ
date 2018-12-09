@@ -20,7 +20,6 @@ import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
 import java.util.zip.Inflater;
 
-
 public class MessageStore {
 	static final MessageStore store = new MessageStore();
 
@@ -124,10 +123,10 @@ public class MessageStore {
 	
 	
 	
-	public synchronized void flush()  throws IOException{    
+	public synchronized void flush()  throws IOException{
 		Producer.count --;
 		int count = Producer.count ;
-		if( count != 0)     
+		if( count != 0)
 			return ;
 		
 		for(String head : map_Out.keySet() ){
@@ -145,7 +144,7 @@ public class MessageStore {
 		synchronized (map_Out) {     // 锁 ， 一个线程调用此代码块时， map_Out 会加锁，另外的线程就不能调用此代码块
 			if (!map_Out.containsKey(topic)) {    // topic 无 对应的输出流 
 				temp_Out = new DataOutputStream(
-						new BufferedOutputStream(new FileOutputStream("./data/" + topic)));   
+						new BufferedOutputStream(new FileOutputStream("./data/" + topic )));   
 				map_Out.put(topic, temp_Out);          // 把新的输出流 加入 输出流的 map 中 
 				
 				
@@ -210,13 +209,10 @@ public class MessageStore {
 			try {
 				temp_In = new DataInputStream(new BufferedInputStream(new FileInputStream("./data/" + topic)));    // 建立 输入流 
 			} catch (FileNotFoundException e) {
-				// e.printStackTrace();
 				return null;
 			}
-			synchronized (map_In) {             // 加锁，只能让一个线程调用  输入流的 put 
-				map_In.put(queue_Topic , temp_In);             //  输入流 temp_In 添加进 输入流的 map 
-			}
-		} else {                                  // 否则
+			map_In.put(queue_Topic , temp_In); 
+		} else {                               
 			temp_In = map_In.get(queue_Topic);                // 根据  queue + topic  作为 map 的 key 得到输入流 
 		}
 
@@ -301,7 +297,7 @@ public class MessageStore {
 	}
 */	
 
-
+// https://blog.csdn.net/xue1225go/article/details/4263850  这个是压缩算法的博客
 	public static byte[] compress(byte[] data) {
 		byte[] new_Data = null;
 		try {
@@ -318,7 +314,7 @@ public class MessageStore {
 		return new_Data;
 	}
 
-	public static byte[] uncompress(byte[] data) {          // https://blog.csdn.net/xue1225go/article/details/4263850  这个是压缩算法的博客
+	public static byte[] uncompress(byte[] data) {
 		byte[] new_Data = null;
 		try {
 			ByteArrayInputStream bis = new ByteArrayInputStream(data);
