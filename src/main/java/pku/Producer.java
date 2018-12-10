@@ -10,9 +10,10 @@ public class Producer {
 	private KeyValue properties;                 //  key -value 内容 
 	private String storePath;                    // 存储路径 
 	private Map<String, MappedWriter> bufferHashMap = new HashMap<>();     //   key 是 topic 
-
-
-	private Map<String, MappedWriter> buffertopics = new HashMap<>();   // key 是 topic
+	private MessageStore messageStore = MessageStore.getInstance();
+	
+	
+	private Map<String, MappedWriter> buffertopics = new ConcurrentHashMap<>();   // key 是 topic
 	
 	
 	public Producer() {          
@@ -38,18 +39,7 @@ public class Producer {
 		if (!bufferHashMap.containsKey(topic)) {  // 如果该 生产者 发送过该 topic的消息 
 			
 			
-			String fileName = storePath + "/" + topic;
-	  		if (!buffertopics.containsKey(topic)) {     // 如果包含 topic 
-	  			mw = new MappedWriter(fileName);           // 根据 存储路径 + topic 得到 mapperwriter       是根据 fileName得到 mw 的
-	  			buffertopics.put(topic, mw);   // 如果存在就返回当前值，不存在就 put 
-	  		} else {
-	  			mw =  buffertopics.get(topic);     // 否则直接取  
-	  		}
-			
-			
-			
-			
-			
+			mw = messageStore.getMappedWriter(storePath, topic);   // 生成新的  writer的路径 
 			
 			
 			bufferHashMap.put(topic, mw);
