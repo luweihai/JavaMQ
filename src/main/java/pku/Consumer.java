@@ -24,36 +24,30 @@ public class Consumer {
 		
 		ByteMessage message=null;
 	    
-	    for(String topic  :  nonConsumeFiles  ){	
-			
-			String key = queue + " " + topic;
+	    
+	    
+	    
+	    for (int i = 0; i < nonConsumeFiles.size(); i++) {    // 遍历整个链表 
+		    int index = (i + readPos) % nonConsumeFiles.size();         // 此处可以提高速度  
+		    String topic = nonConsumeFiles.get(index);
+		      
+		    String key = queue + " " + topic;
 			MappedReader  mr;
 			if (!bufferBuckets.containsKey(key)) {
 				mr = new MappedReader( storePath , topic);
 				bufferBuckets.put( key , mr);
-			  
+				  
 			} else {
 				mr= bufferBuckets.get(key);
 			}
 			message =  mr.poll();
-			
-			if (message != null) {
-		        break; 
-			}
-			
-		}
-	    
-/*	    
-	    for (int i = 0; i < nonConsumeFiles.size(); i++) {    // 遍历整个链表 
-		      int index =  i % nonConsumeFiles.size();         // 此处可以提高速度  
-		      	得到消息    
 		      
-		      if (message != null) {
-			        readPos = index + 1;
-			        break;
-		      }
+			if (message != null) {
+				readPos = index + 1;
+				break;
+			}
 	    }
-*/	    
+	    
 	    
 	    return message;
 
