@@ -7,29 +7,29 @@ import java.util.Set;
  * Key-Value接口
  * 代表key-value的映射, key为String类型, value的类型只有四种:int long double String
  */
-public interface KeyValue {    // 此处的 value 是 topic，然后key是 MessageHeader中的各种静态常量
+public interface KeyValue {
 
-    public Object getObj(String key);
+	public Object getObj(String key);
 
-    public HashMap<String, Object> getMap();
+	public HashMap<String, Object> getMap();
 
-    public KeyValue put(String key, int value) ;
+	public KeyValue put(String key, int value) ;
 
-    public KeyValue put(String key, long value);
+	public KeyValue put(String key, long value);
 
-    public KeyValue put(String key, double value);
+	public KeyValue put(String key, double value);
 
-    public KeyValue put(String key, String value);
+	public KeyValue put(String key, String value);
 
-    public int getInt(String key);
+	public int getInt(String key);
 
-    public long getLong(String key);
+	public long getLong(String key);
 
-    public double getDouble(String key);
+	public double getDouble(String key);
 
-    public String getString(String key);
+	public String getString(String key);
 
-    public Set<String> keySet();
+	public Set<String> keySet();
 
-    public boolean containsKey(String key);
+	public boolean containsKey(String key);
 }
