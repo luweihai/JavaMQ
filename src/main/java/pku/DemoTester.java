@@ -14,7 +14,7 @@ import java.util.concurrent.atomic.AtomicInteger;
  */
 public class DemoTester {
     //每个pusher向每个topic发送的消息数目
-    static int PUSH_COUNT = 100000;
+    static int PUSH_COUNT = 10;
     //发送消息的线程数
     static int PUSH_THREAD_COUNT = 4;
     //发送线程往n个topic发消息
@@ -189,7 +189,9 @@ public class DemoTester {
         } catch (Exception e) {
             e.printStackTrace();
         }
-        
+        finally{
+        	System.out.println("aaaaaaaaaaaaaaaaaaaaaaaa");
+        }
 
     }
 }
