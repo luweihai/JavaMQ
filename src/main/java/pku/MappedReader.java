@@ -1,11 +1,14 @@
 package pku;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.nio.BufferUnderflowException;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
+import java.util.zip.GZIPInputStream;
 
 
 public class MappedReader {
@@ -34,10 +37,26 @@ public class MappedReader {
 					int valueType = Integer.valueOf(str[1]);
 					setHead(valueType, headKey, msg);
 				}
+				int compre = buf.getInt();
+				
+				
 				int bodyLen = buf.getInt();
 				byte[] body = new byte[bodyLen];
 				buf.get(body);
-				msg.setBody(body);
+				
+				if (compre == 1) {                     // 如果压缩了
+					try {
+						msg.setBody(uncompress(body));
+					} catch (Exception e) {
+						e.printStackTrace();
+					}      // 解压，并且 setBody
+				} else {                         
+					msg.setBody(body);                        // 直接 setBody
+				}
+				
+				
+				
+				
 			}
 		}catch (BufferUnderflowException e){
 			return msg;
@@ -72,5 +91,27 @@ public class MappedReader {
 	}
 	public void close() throws Exception {
 		fc.close();
+	}
+	
+	public static byte[] uncompress(byte[] data) {
+		byte[] new_Data = null;
+		try {
+			ByteArrayInputStream bis = new ByteArrayInputStream(data);
+			GZIPInputStream gzip = new GZIPInputStream(bis);
+			byte[] buf = new byte[1000];
+			int num = -1;
+			ByteArrayOutputStream baos = new ByteArrayOutputStream();
+			while ((num = gzip.read(buf, 0, buf.length)) != -1) {
+				baos.write(buf, 0, num);
+			}
+			new_Data = baos.toByteArray();
+			baos.flush();
+			baos.close();
+			gzip.close();
+			bis.close();
+		} catch (Exception ex) {
+			ex.printStackTrace();
+		}
+		return new_Data;
 	}
 }

@@ -1,11 +1,15 @@
 package pku;
 
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
+import java.util.zip.GZIPInputStream;
+import java.util.zip.GZIPOutputStream;
 
 
 public class MappedWriter {
@@ -51,8 +55,19 @@ public class MappedWriter {
   			writeString(sb.toString());                           //    写入了  索引+ ， + 分类   , type 也就是 1、2、3、4    
   			writeHeadValue(type, message.headers().getObj(key));     // 写入   分类  + value
   		}
-  		buf.putInt(message.getBody().length);
-  		buf.put(message.getBody());
+  		int isCompress = 0;
+  		byte[] body = null;
+  		if (message.getBody().length > 200) {     // 消息的 body的 byte数组 大于 200    调参数的过程  
+			body = compress(message.getBody());   // 对 body 压缩
+			isCompress = 1;       // 记录被压缩了 
+		}
+		else {
+			body=message.getBody();      // 不压缩了
+			isCompress = 0;
+		}
+  		buf.putInt(isCompress);
+  		buf.putInt(body.length);
+  		buf.put(body);
 
   	}
   	private synchronized void  writeString(String str){
@@ -91,4 +106,24 @@ public class MappedWriter {
   	public void close() throws Exception {
   		fc.close();
   	}
+  	
+  	
+  	
+  	public static byte[] compress(byte[] data) {
+		byte[] new_Data = null;
+		try {
+			ByteArrayOutputStream bos = new ByteArrayOutputStream();
+			GZIPOutputStream gzip = new GZIPOutputStream(bos);
+			gzip.write(data);
+			gzip.finish();
+			gzip.close();
+			new_Data = bos.toByteArray();
+			bos.close();
+		} catch (Exception ex) {
+			ex.printStackTrace();
+		}
+		return new_Data;
+	}
+
+	
 }
