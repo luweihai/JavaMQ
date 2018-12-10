@@ -2,37 +2,54 @@ package pku;
 
 import java.io.IOException;
 import java.util.HashMap;
-import java.util.HashSet;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
-/**
- * 生产者
- */
 public class Producer {
+
+	private KeyValue properties;                 //  key -value 内容 
+	private String storePath;                    // 存储路径 
+	private Map<String, MappedWriter> bufferHashMap = new HashMap<>();     //   key 是 topic 
+	private MessageStore messageStore = MessageStore.getInstance();
 	
-	private String topic = null ;
 	
-	public static byte count = 0;
-	public  Producer(){
-		this.count ++;
+	private Map<String, MappedWriter> buffertopics = new ConcurrentHashMap<>();   // key 是 topic
+	
+	
+	public Producer() {          
+		this.properties = new DefaultKeyValue();
+		properties.put("STORE_PATH", "data");
+		storePath = properties.getString("STORE_PATH");
 	}
+
+	public ByteMessage createBytesMessageToTopic(String topic, byte[] body) {
+		DefaultMessage defaultBytesMessage = new DefaultMessage(body);
+		defaultBytesMessage.putHeaders(MessageHeader.TOPIC, topic);
+		return defaultBytesMessage;
+	}
+
 	
-	//生成一个指定topic的message返回
-    public ByteMessage createBytesMessageToTopic(String topic, byte[] body){
-        this.topic = topic ;         // 因为生成 message后立马要 send ，所以topic 还是相同可以全局用 
-        
-    	ByteMessage msg = new DefaultMessage(body);
-        msg.putHeaders(MessageHeader.TOPIC  ,   topic);  // topic在此处是 value的位置
-        return msg;
-    }
-    //将message发送出去
-    public void send(ByteMessage defaultMessage) throws IOException{  // 一个生产者用到多个 defaultMessage，因为多次 send，所以这个
-    	if(defaultMessage == null)
-        	return ;
-      
-        MessageStore.store.push(defaultMessage , topic);     // 所谓发送消息就是写在 Store（磁盘） 
-    }
-    //处理将缓存区的剩余部分
-    public void flush()throws Exception{
-        MessageStore.store.flush();
-    }
+	
+	public synchronized void  send(ByteMessage message) throws Exception {
+		if (message == null) {
+			return ;
+		}
+		String topic = message.headers().getString(MessageHeader.TOPIC);
+		MappedWriter mw;
+		if (!bufferHashMap.containsKey(topic)) {  // 如果该 生产者 发送过该 topic的消息 
+			
+			
+			mw = messageStore.getMappedWriter(storePath, topic);   // 生成新的  writer的路径 
+			
+			
+			bufferHashMap.put(topic, mw);
+		} else {
+			mw = bufferHashMap.get(topic);    // 否则就直接得到刚刚的路径  
+		}
+		mw.send(message);
+	}
+
+	public void flush() throws IOException {
+		
+	}
 }
