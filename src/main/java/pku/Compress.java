@@ -30,7 +30,7 @@ public class Compress {
 		try {
 			ByteArrayInputStream bis = new ByteArrayInputStream(data);
 			GZIPInputStream gzip = new GZIPInputStream(bis);
-			byte[] buf = new byte[1000];
+			byte[] buf = new byte[4000];
 			int num = -1;
 			ByteArrayOutputStream baos = new ByteArrayOutputStream();
 			while ((num = gzip.read(buf, 0, buf.length)) != -1) {

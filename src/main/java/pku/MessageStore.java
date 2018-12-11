@@ -10,6 +10,7 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedList;
 
@@ -21,13 +22,8 @@ public class MessageStore {
 	HashMap<String, DataOutputStream> map_Out = new HashMap<>();          //  输出流
 	//volatile int producerNum = 0;
 	HashMap<String, DataInputStream> map_In = new HashMap<>();         //  输入流 
-	
-
-	
-	
-	
-	
-	
+	HashMap<String, ArrayList<ByteMessage>> msgs = new HashMap<>();
+	HashMap<String, Integer> readPos = new HashMap<>();
 	
 	public synchronized void flush()  throws IOException{
 		Producer.count --;
@@ -42,7 +38,7 @@ public class MessageStore {
 	}
 
 	// push
-	public void push(ByteMessage msg, String topic) throws IOException {
+	public void push(ByteMessage msg, String topic) throws Exception {
 		if (msg == null) {
 			return;
 		}
@@ -54,220 +50,56 @@ public class MessageStore {
 						new BufferedOutputStream(new FileOutputStream("./data/" + topic )));   
 				map_Out.put(topic, temp_Out);          // 把新的输出流 加入 输出流的 map 中 
 				//System.out.println("aaa");  测试用
-				
-	/*			FileOutputStream fs = new FileOutputStream("./data/" + topic, true);
-				temp_Out = new DataOutputStream( fs );                此处是优化的点，居然可以提高push的效率近4倍？
-				map_Out.put(topic, temp_Out);
-						*/
+
 			} else {
 				temp_Out = map_Out.get(topic);         // 取得输出流 
 				//System.out.println("bbb");   测试用 
 			}
 		}
-		
-		// 写入消息
-		byte[] body = null;
-		byte head_Num = (byte) msg.headers().keySet().size();   // 此处就是得到已经出现过的消息的 固定的头 组成的Set 集合的 大小     
-		byte isCompress;
-		if (msg.getBody().length > 200) {     // 消息的 body的 byte数组 大于 200    调参数的过程  
-			body = Compress.compressGZ(msg.getBody());   // 对 body 压缩
-			isCompress = 1;       // 记录被压缩了 
-		}
-		else {
-			body=msg.getBody();      // 不压缩了
-			isCompress = 0;
-		}
 
-		synchronized (temp_Out) {        //  加锁，只能一个线程访问 temp_Out 对象 
-			temp_Out.writeByte(head_Num);                    //  写入  已经出现过的消息的 固定的头 组成的Set 集合的 大小 
-			
+		Write.write(temp_Out , msg , topic );
 
-			
-			
-			for( HashMap.Entry<String , Object > entry :  msg.headers().getMap().entrySet()  ){
-				String key = entry.getKey();
-				temp_Out.writeByte(change_Headers_Key.stringToClassByte.get( key ));         // 得到 某个 固定头部 对应的  byte类型的索引    并且写入 
-				
-		
-				
-				switch (change_Headers_Key.stringToClass.get( key )) {             // 此处 得到 short 类型的 数字化 类型 
-				case 1:
-					temp_Out.writeLong( (long)entry.getValue() );               // 写入  long 类型的 topic 
-					break;
-				case 2:
-					temp_Out.writeDouble((double)entry.getValue());               // 写入 double 类型的 topic
-					break;
-				case 3:
-					temp_Out.writeInt((int)entry.getValue());                  // 写入 int 类型的 topic
-					break;
-				case 4:
-					temp_Out.writeUTF( (String) entry.getValue());            // 写入 String 类型的 topic     此处是用输出流的 writeUTF
-					break;
-				}
-			}
-			temp_Out.writeByte(isCompress);           //  isCompress = 0 或者 1  表明 是否被压缩 
-			temp_Out.writeShort(body.length);         // 写入 body，也就是 数据部分 的长度  用 short是为了节约 
-			temp_Out.write(body);			          // 写入全部的 body 数据
-		}
 	}
 
-	public ByteMessage pull(String queue, String topic) throws IOException {
+	public ByteMessage pull(String queue, String topic) throws Exception {
 		
 		String queue_Topic = queue + " " + topic;                     
 		
-		DataInputStream temp_In;                             
-	
-		
-		if (!map_In.containsKey(queue_Topic)) {                  
-			try {
-				temp_In = new DataInputStream(new BufferedInputStream(new FileInputStream("./data/" + topic)));    // 建立 输入流 
-			} catch (FileNotFoundException e) {
-				return null;
-			}
-			synchronized (map_In) {             // 加锁，只能让一个线程调用  输入流的 put   尽可能减少锁的范围 
-				map_In.put(queue_Topic , temp_In);            
-			}
-		} else {               
-			temp_In = map_In.get(queue_Topic);                // 根据  queue + topic  作为 map 的 key 得到输入流 
+		if (!readPos.containsKey(topic)) {
+			readPos.put(topic , 0);
 		}
+		if (!msgs.containsKey(topic)) {
 
-		if (temp_In.available() != 0) {                  // 此方法是返回流中实际可以读取的字节数目  
-
+			DataInputStream temp_In;                             
 			
-			ByteMessage msg = new DefaultMessage(null);        
-			byte head_Type ;
-			byte head_Num = temp_In.readByte();              
-			for (int i = 0; i < head_Num; i++) {
-
-				                                          //  接下来就是读取依此出现过的 固定头部 
-				head_Type = temp_In.readByte();                //  在循环中获取 固定头部的  byte类型的 下标 
-				switch (change_Headers_Key.indexToClass.get(head_Type)) {    
-				case  1:
-					msg.putHeaders(change_Headers_Key.indexToString.get(head_Type), temp_In.readLong());   
-					break;                                                                          
-				case  2:
-					msg.putHeaders(change_Headers_Key.indexToString.get(head_Type), temp_In.readDouble());
-					break;
-				case  3:
-					msg.putHeaders(change_Headers_Key.indexToString.get(head_Type), temp_In.readInt());
-					break;
-				case  4:
-					msg.putHeaders(change_Headers_Key.indexToString.get(head_Type), temp_In.readUTF());   // 此处是用输入流的 readUTF() 
-					break;
-				}
-			}
-			
-			byte is_Compress = temp_In.readByte();           // 读一个byte 表示 是否被压缩了                
-			short length = temp_In.readShort();             //  读一个 short ，代表 data 的长度 
-			byte[] data = new byte[length];                 // 用 byte数组 存储 data 
-			temp_In.read(data);             
-			if (is_Compress == 1) {                     // 如果压缩了
+			if (!map_In.containsKey(queue_Topic)) {                  
 				try {
-					msg.setBody(Compress.uncompressGZ(data));
-				} catch (Exception e) {
-					e.printStackTrace();
-				}    
-			} else {                         
-				msg.setBody(data);                        // 直接 setBody
+					temp_In = new DataInputStream(new BufferedInputStream(new FileInputStream("./data/" + topic)));    // 建立 输入流 
+				} catch (FileNotFoundException e) {
+					return null;
+				}
+				synchronized (map_In) {             // 加锁，只能让一个线程调用  输入流的 put   尽可能减少锁的范围 
+					map_In.put(queue_Topic , temp_In);            
+				}
+			} else {               
+				temp_In = map_In.get(queue_Topic);                // 根据  queue + topic  作为 map 的 key 得到输入流 
 			}
-			return msg;           
-		} else {                                   // 没有可读的消息了 
-			return null;
-		}
-	}
-	
-	
-	
-	
-	
-	
-	private static class change_Headers_Key{
-		/*
-		 * 下面的匿名内部类是初始化 索引-固定头部-分类的 映射关系
-		 */
-		
-		public static final  HashMap<Byte, String> indexToString = new HashMap<Byte, String>() {    
-			{
-				put((byte) 1, "MessageId");
-				put((byte) 2, "Topic");
-				put((byte) 3, "BornTimestamp");
-				put((byte) 4, "BornHost");
-				put((byte) 5, "StoreTimestamp");
-				put((byte) 6, "StoreHost");
-				put((byte) 7, "StartTime");
-				put((byte) 8, "StopTime");
-				put((byte) 9, "Timeout");
-				put((byte) 10, "Priority");
-				put((byte) 11, "Reliability");
-				put((byte) 12, "SearchKey");
-				put((byte) 13, "ScheduleExpression");
-				put((byte) 14, "ShardingKey");
-				put((byte) 15, "ShardingPartition");
-				put((byte) 16, "TraceId");
-			}
-		};
-		public static final HashMap<String, Short> stringToClass = new HashMap<String, Short>() {   
-			{                                          // 此处的 value 是 数字，表示是属于哪个类型  
-				put("MessageId", (short) 3);             // int
-				put("Topic", (short) 4);                 // String 
-				put("BornTimestamp", (short) 1);        // long  
-				put("BornHost", (short) 4);              // String 
-				put("StoreTimestamp", (short) 1);        // long 
-				put("StoreHost", (short) 4);             // String 
-				put("StartTime", (short) 1);            // long  
-				put("StopTime", (short) 1);            // long  
-				put("Timeout", (short) 3);               // int 
-				put("Priority", (short) 3);                // int 
-				put("Reliability", (short) 3);              // int  
-				put("SearchKey", (short) 4);                // String 
-				put("ScheduleExpression", (short) 4);        // String 
-				put("ShardingKey", (short) 2);            // double 
-				put("ShardingPartition", (short) 2);          // double 
-				put("TraceId", (short) 4);                  // String  
-			}
-		};
-		public static final HashMap<String, Byte> stringToClassByte = new HashMap<String, Byte>() {     // value 表明索引
-			{
-				put("MessageId", (byte) 1);                      
-				put("Topic", (byte) 2);                           
-				put("BornTimestamp", (byte) 3);
-				put("BornHost", (byte) 4);
-				put("StoreTimestamp", (byte) 5);
-				put("StoreHost", (byte) 6);
-				put("StartTime", (byte) 7);
-				put("StopTime", (byte) 8);
-				put("Timeout", (byte) 9);
-				put("Priority", (byte) 10);
-				put("Reliability", (byte) 11);
-				put("SearchKey", (byte) 12);
-				put("ScheduleExpression", (byte) 13);
-				put("ShardingKey", (byte) 14);
-				put("ShardingPartition", (byte) 15);
-				put("TraceId", (byte) 16);
-			}
-		};
-		
-		public static final HashMap<Byte, Byte> indexToClass = new HashMap<Byte, Byte>() {   //  索引  到  类型 的  key-value 对
-			{
-				put((byte) 1, (byte) 3);                            // int
-				put((byte) 2, (byte) 4);                            // String 
-				put((byte) 3, (byte) 1);                            // long 
-				put((byte) 4, (byte) 4);                            // String 
-				put((byte) 5, (byte) 1);                            // long 
-				put((byte) 6, (byte) 4);                            // String 
-				put((byte) 7, (byte) 1);                            // long 
-				put((byte) 8, (byte) 1);                            // long 
-				put((byte) 9, (byte) 3);                            // int 
-				put((byte) 10, (byte) 3);                           // int 
-				put((byte) 11, (byte) 3);                           // int 
-				put((byte) 12, (byte) 4);                           // String 
-				put((byte) 13, (byte) 4);                           // String 
-				put((byte) 14, (byte) 2);                           // double 
-				put((byte) 15, (byte) 2);                           // double
-				put((byte) 16, (byte) 4);                           // String
-			}
-		};
-	}
+			
+			return Read.read(  temp_In , queue,  topic );
 
+			
+		}
+		int pos = readPos.get(topic);
+		ArrayList<ByteMessage> list = msgs.get(topic);
+		if (list.size() <= pos) {
+			return null;
+		} else {
+			ByteMessage msg = list.get(pos);
+			// 将键k的值+1，表示当前读到第pos个msg，下一次应该读+1个
+			readPos.put(topic , pos + 1);
+			return msg;
+		}
+
+	}
 
 }

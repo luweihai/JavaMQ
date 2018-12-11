@@ -25,7 +25,7 @@ public class Producer {
         return msg;
     }
     //将message发送出去
-    public void send(ByteMessage defaultMessage) throws IOException{  // 一个生产者用到多个 defaultMessage，因为多次 send，所以这个
+    public void send(ByteMessage defaultMessage) throws Exception{  // 一个生产者用到多个 defaultMessage，因为多次 send，所以这个
     	if(defaultMessage == null)
         	return ;
       
